@@ -8,7 +8,7 @@ from onitu.referee import UP, DEL, MOV
 
 from .metadata import Metadata
 from .exceptions import AbortOperation
-from .router import CHUNK, FILE
+from .router import GET_CHUNK, GET_FILE
 
 
 class Worker(object):
@@ -115,7 +115,7 @@ class TransferWorker(Worker):
             "Asking {} for the content of '{}'", self.driver, self.filename
         )
 
-        dealer.send_multipart((FILE, str(self.fid).encode()))
+        dealer.send_multipart((GET_FILE, str(self.fid).encode()))
         _, content = dealer.recv_multipart()
 
         self.logger.debug(
@@ -132,7 +132,7 @@ class TransferWorker(Worker):
             self.logger.debug("Asking {} for a new chunk", self.driver)
 
             dealer.send_multipart((
-                CHUNK,
+                GET_CHUNK,
                 str(self.fid).encode(),
                 str(self.offset).encode(),
                 str(self.chunk_size).encode()
