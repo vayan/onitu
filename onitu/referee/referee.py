@@ -10,28 +10,10 @@ from logbook import Logger
 from onitu.escalator.client import Escalator, EscalatorClosed
 from onitu.utils import get_events_uri
 
-from .cmd import UP, DEL, MOV
+from .cmd import UP, DEL, MOV, CONFIG
 
 
 class Referee(object):
-    """Referee class, receive all events and deal with them.
-
-    The events are represented as Redis List 'events' that should be
-    appended with RPUSH. Each item is the file id (fid) of the file
-    which triggered the event.
-
-    The Referee give orders to the entries via his PUB ZMQ socket,
-    whose port is stored in the Redis 'referee:publisher' key.
-    The Plug of each entry should subscribe to this port with a PULL
-    socket and subscribe to all the events starting by their name.
-
-    The notifications are sent to the publishers as multipart
-    messages with three parts :
-
-    - The name of the addressee (the channel)
-    - The name of the entry from which the file should be transferred
-    - The id of the file
-    """
 
     def __init__(self, escalator_uri, session):
         super(Referee, self).__init__()
@@ -42,10 +24,10 @@ class Referee(object):
         self.get_events_uri = functools.partial(
             get_events_uri, session, self.escalator)
 
-        self.entries = self.escalator.get('entries')
-        self.rules = self.escalator.get('referee:rules')
+        self.update_config()
 
         self.handlers = {
+            CONFIG: self._handle_config,
             UP: self._handle_update,
             DEL: self._handle_deletion,
             MOV: self._handle_move,
@@ -54,7 +36,8 @@ class Referee(object):
     def listen(self):
         """Listen to all the events, and handle them
         """
-        self.logger.info("Started")
+
+        self.logger.info("started")
 
         try:
             listener = self.context.socket(zmq.PULL)
@@ -71,10 +54,9 @@ class Referee(object):
                     self.escalator.delete(key)
 
                 listener.recv()
+
         except zmq.ZMQError as e:
-            if e.errno == zmq.ETERM:
-                pass
-            else:
+            if e.errno != zmq.ETERM:
                 raise
         except EscalatorClosed:
             pass
@@ -85,135 +67,141 @@ class Referee(object):
         self.escalator.close()
         self.context.term()
 
-    def rule_match(self, rule, filename):
-        if not re.match(rule["match"].get("path", ""), filename):
-            return False
+    # HELPERS
 
-        filemime = set(mimetypes.guess_type(filename))
-        wanted = rule["match"].get("mime", [])
-        if wanted and filemime.isdisjoint(wanted):
-            return False
+    def dir_common_root(self, dirs):
 
-        return True
+        common = []
 
-    def _handle_deletion(self, fid, driver):
+        for components in zip(*(d.split(os.path.sep) for d in dirs)):
+            if any(c != components[0] for c in components):
+                break
+            common.append(components[0])
+
+        return os.path.join(*common)
+
+    def compute_folders(self, folders):
         """
-        Notify the owners when a file is deleted
+        Returns a list of affected folders for actions on a fid.
+
+        folders is a dictionary mapping folders to paths, this functions
+        takes at least one such mapping as a starting point.
         """
-        metadata = self.escalator.get('file:{}'.format(fid), default=None)
 
-        if not metadata:
-            return
+        bridged = folders
+        folders = {}
 
-        owners = set(metadata['owners'])
-        filename = metadata['filename']
+        for folder, fpath in bridged.items():
+            folders[folder] = fpath
 
-        self.logger.info("Deletion of '{}' from {}", filename, driver)
+            for service in self.services:
 
-        if driver in owners:
-            owners.remove(driver)
-            self.escalator.delete('file:{}:entry:{}'.format(fid, driver))
+                # If this service acts like a bridge between the current
+                # folder and another one we compute the path in the new
+                # folders and add it to the list of list of bridged folders.
 
-            metadata['owners'] = tuple(owners)
-            self.escalator.put('file:{}'.format(fid), metadata)
+                currentmount = service['folders'][folder]['mount']
+                spath = os.path.normpath(currentmount + os.path.sep + fpath)
 
-        if not owners:
-            self.escalator.delete('file:{}'.format(fid))
-            return
+                for otherfolder in service['folders']:
+                    if otherfolder == folder:
+                        continue
 
-        self.notify(owners, DEL, fid)
+                    # check if spath is in other folder.
+                    # if so, this is a bridge.
 
-    def _handle_move(self, old_fid, driver, new_fid):
-        """
-        Notify the owners when a file is moved
-        """
-        metadata = self.escalator.get('file:{}'.format(old_fid), default=None)
+                    # We might need to consider other constraints (size, filetype)
 
-        if not metadata:
-            return
 
-        owners = set(metadata['owners'])
-        filename = metadata['filename']
 
-        new_metadata = self.escalator.get('file:{}'.format(new_fid))
-        new_filename = new_metadata['filename']
-
-        self.logger.info(
-            "Moving of '{}' to '{}' from {}", filename, new_filename, driver
-        )
-
-        if driver in owners:
-            owners.remove(driver)
-            self.escalator.delete('file:{}:entry:{}'.format(old_fid, driver))
-
-            metadata['owners'] = tuple(owners)
-            self.escalator.put('file:{}'.format(old_fid), metadata)
-
-        if not owners:
-            self.escalator.delete('file:{}'.format(old_fid))
-            return
-
-        self.notify(owners, MOV, old_fid, new_fid)
-
-    def _handle_update(self, fid, driver):
-        """Choose who are the entries that are concerned by the event
-        and send a notification to them.
-
-        For the moment all the entries are notified for each event, but
-        this should change when the rules will be introduced.
-        """
         metadata = self.escalator.get('file:{}'.format(fid))
-        owners = set(metadata['owners'])
-        uptodate = set(metadata['uptodate'])
 
-        filename = os.path.join("/", metadata['filename'])
+        expandto = set(metadata['folders'].keys())
+        affected = set()
 
-        self.logger.info("Update for '{}' from {}", filename, driver)
+        while expandto:
 
-        if driver not in owners:
-            self.logger.debug("The file '{}' was not suposed to be on {}, "
-                              "but syncing anyway.", filename, driver)
 
-        should_own = set(uptodate)
+            expanded = False
 
-        for rule in self.rules:
-            if self.rule_match(rule, filename):
-                should_own.update(rule.get("sync", []))
-                should_own.difference_update(rule.get("ban", []))
+            for service in affected:
 
-        if should_own != owners:
-            metadata['owners'] = list(should_own)
-            self.escalator.put('file:{}'.format(fid), metadata)
 
-        assert uptodate
-        source = next(iter(uptodate))
 
-        self.notify(should_own - uptodate, UP, fid, source)
 
-        for name in owners.difference(should_own):
-            self.logger.debug("The file '{}' on {} is no longer under onitu "
-                              "control. should be deleted.", filename, name)
+        pass
 
-    def notify(self, drivers, cmd, fid, *args):
-        if not drivers:
+        # Ok this is gonna be hackish.
+        # The new format has folders, onitu doesn't. (yet)
+        #
+        # What should be done:
+        #     - plugs should add 'folder' to metadata based on
+        #       their service/folder configuration.
+        #     - rules should be applied on a per folder basis.
+        #     - forward 'fid' to new owners, they'll now where
+        #       to put it based on 'folder' + other metadata.
+        #
+        # How we could emulate this behaviour:
+        #     - plugs don't know about folders, they send the
+        #       filename.
+        #     - look at 'path' option in all service/folder
+        #       options and match it with filename, use this
+        #       as the folder.
+        #     - apply rules based on the folder
+        #     - for all owners, check their 'path' for the folder
+        #       raise an error if it isn't the same. (don't handle
+        #       folders mounted at different paths yet)
+        #
+        #     In addition to this, the referee *will* add 'folder' to the
+        #     metadata and a 'folder_filepath' which should be used
+        #     by drivers suporting the folder mechanism. Of course if a
+        #     driver sends metadata with 'folder' and 'folder_filepath'
+        #     that will be used instead of the above hack.
+        #     'folder_filepath' is like 'path' but relative to the folder.
+        #
+
+
+    def update_config(self):
+        self.services = self.escalator.get('services')
+        self.folders = self.escalator.get('folders')
+
+    def notify(self, services, cmd, fid, *args):
+        if not services:
             return
 
         publisher = self.context.socket(zmq.PUSH)
         publisher.linger = 1000
 
-        for name in drivers:
-            self.escalator.put(
-                'entry:{}:event:{}'.format(name, fid), (cmd, args)
-            )
-
+        for name in services:
+            self.escalator.put('entry:{}:event:{}'.format(name, fid),
+                               (cmd, args))
             publisher.connect(self.get_events_uri(name))
+
         try:
             publisher.send(b'')
         except zmq.ZMQError as e:
             publisher.close(linger=0)
-            if e.errno == zmq.ETERM:
-                pass
-            else:
+            if e.errno != zmq.ETERM:
                 raise
         else:
             publisher.close()
+
+
+    # HANDLERS
+
+    def _handle_config(self):
+        self.update_config()
+
+        # TODO:
+        #  - Add a command/handler for forced update
+        #    in which case we should recompute everything.
+
+
+    def _handle_update(self, fid, service):
+        pass
+
+    def _handle_deletion(self, fid, service):
+        pass
+
+    def _handle_move(self, old_fid, service, new_fid):
+        pass

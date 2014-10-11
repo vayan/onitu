@@ -13,7 +13,7 @@ import argparse
 import string
 import random
 
-import json
+import yaml
 import circus
 
 from circus.exc import ConflictError
@@ -31,7 +31,7 @@ from .utils import at_exit, get_open_port
 
 @gen.coroutine
 def start_setup(*args, **kwargs):
-    """Parse the setup JSON file, clean the database,
+    """Parse the setup YAML file, clean the database,
     and start the :class:`.Referee` and the drivers.
     """
     escalator = Escalator(escalator_uri, session, create_db=True)
@@ -43,15 +43,16 @@ def start_setup(*args, **kwargs):
             for key in ports:
                 batch.delete(key)
 
-    escalator.put('referee:rules', setup.get('rules', []))
-
-    if 'entries' not in setup:
-        logger.warn("No entries specified in '{}'", setup_file)
+    if 'services' not in setup:
+        logger.warn("No services specified in '{}'", setup_file)
         loop.stop()
 
-    entries = setup['entries']
+    services = setup['services']
+    escalator.put('services', services)
 
-    escalator.put('entries', list(entries.keys()))
+    # Don't freak out if no folders, it's just defaults.
+    folders = setup.get('folders', {})
+    escalator.put('folders', folders)
 
     referee = arbiter.add_watcher(
         "Referee",
@@ -62,19 +63,15 @@ def start_setup(*args, **kwargs):
 
     loop.add_callback(start_watcher, referee)
 
-    for name, conf in entries.items():
-        logger.debug("Loading entry {}", name)
+    for name, conf in services.items():
+        logger.debug("Loading service {}", name)
 
         if ':' in name:
             logger.error("Illegal character ':' in entry {}", name)
             continue
 
         escalator.put('entry:{}:driver'.format(name), conf['driver'])
-
-        if 'options' in conf:
-            escalator.put(
-                'entry:{}:options'.format(name), conf['options']
-            )
+        escalator.put('entry:{}:options'.format(name), conf)
 
         watcher = arbiter.add_watcher(
             name,
@@ -86,7 +83,7 @@ def start_setup(*args, **kwargs):
 
         loop.add_callback(start_watcher, watcher)
 
-    logger.debug("Entries loaded")
+    logger.debug("Services loaded")
 
     api = arbiter.add_watcher(
         "Rest API",
@@ -133,7 +130,7 @@ def get_setup():
     logger.info("Loading setup...")
     try:
         with open(setup_file) as f:
-            return json.load(f)
+            return yaml.load(f)
     except ValueError as e:
         logger.error("Error parsing '{}' : {}", setup_file, e)
     except Exception as e:
@@ -145,8 +142,8 @@ def get_setup():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("onitu")
     parser.add_argument(
-        '--setup', default='setup.json',
-        help="A JSON file with Onitu's configuration (defaults to setup.json)"
+        '--setup', default='setup.yaml',
+        help="A YAML file with Onitu's configuration (defaults to setup.yaml)"
     )
     parser.add_argument(
         '--log-uri', help="A ZMQ socket where all the logs will be sent"

@@ -205,6 +205,16 @@ class Plug(object):
         }
 
         for name, value in self.options.items():
+
+            if name == "folders":
+                # This is emulated by the referee until the plugs
+                # are folder aware.
+                continue
+
+            if name == "driver":
+                # This describes us, already taken care of.
+                continue
+
             if name not in options:
                 raise RuntimeError("Unknown option '{}'".format(name))
                 return False

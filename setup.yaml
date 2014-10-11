@@ -1,0 +1,35 @@
+# This file sets-up to folders:
+#   synced:     Synced between A and B
+#   sent_to_b:  Collects everything in B.
+
+
+name: "Example Configuration"
+
+folders:
+  synced
+  sent_to_b
+
+services:
+
+  A:
+    driver: "local_storage"
+    root: "example/driver_a"
+
+    folders:
+      synced:
+        path: "/synced"
+      sent_to_b:
+        path: "/sent_to_b"
+
+  B:
+    driver: "local_storage"
+    root: "example/driver_b"
+
+    folders:
+      synced:
+        path: "/synced"
+      sent_to_b:
+        path: "/sent_to_b"
+        mode: "w"
+
+#EOF
