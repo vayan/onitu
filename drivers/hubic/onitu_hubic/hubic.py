@@ -7,6 +7,7 @@ import time
 import datetime
 
 from onitu.plug import Plug, ServiceError
+from onitu.escalator.client import EscalatorClosed
 
 plug = Plug()
 hubic = None
@@ -100,9 +101,9 @@ class Hubic:
         return str(os.path.join(self.root, filename))
 
     def get_object_details(self, path):
-        ''' Return a dict with: content-length, accept-ranges,
+        """ Return a dict with: content-length, accept-ranges,
         last-modified, x-object-manifest, x-timestamp, etag,
-        x-trans-id, date, content-type '''
+        x-trans-id, date, content-type """
 
         try:
             res = self.os_call('head', 'default/' + path)
@@ -149,8 +150,8 @@ class CheckChanges(threading.Thread):
         self.root = root
 
     def check_changes(self, path=''):
-        ''' Detects changes in the given folder and its subfolders and
-        launches the download if needed'''
+        """ Detects changes in the given folder and its subfolders and
+        launches the download if needed"""
 
         global plug
         global hubic
@@ -194,7 +195,11 @@ class CheckChanges(threading.Thread):
 
     def run(self):
         while not self.stop.isSet():
-            self.check_changes()
+            try:
+                self.check_changes()
+            except EscalatorClosed:
+                # We are closing
+                return
             self.stop.wait(self.timer)
 
     def stop(self):
@@ -253,8 +258,8 @@ def delete_file(metadata):
 
 @plug.handler()
 def start_upload(metadata):
-    '''Initialize a new upload.
-    This handler is called when a new transfer is started.'''
+    """Initialize a new upload.
+    This handler is called when a new transfer is started."""
 
     global hubic
 
@@ -288,7 +293,7 @@ def upload_file(metadata, data):
 
 @plug.handler()
 def upload_chunk(metadata, offset, chunk):
-    '''Write a chunk in a file at a given offset.'''
+    """Write a chunk in a file at a given offset."""
 
     global hubic
 
@@ -314,7 +319,7 @@ def upload_chunk(metadata, offset, chunk):
 
 @plug.handler()
 def end_upload(metadata):
-    '''Called when a transfer is over.'''
+    """Called when a transfer is over."""
 
     global hubic
     if metadata.extra['chunked'] is True:
@@ -343,8 +348,8 @@ def end_upload(metadata):
 
 @plug.handler()
 def get_chunk(metadata, offset, size):
-    '''Return a chunk of a given size,
-    starting at the given offset, from a file.'''
+    """Return a chunk of a given size,
+    starting at the given offset, from a file."""
 
     global hubic
     headers = {'Range': str(offset) + '-' + str(offset + size)}

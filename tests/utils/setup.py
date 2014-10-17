@@ -5,6 +5,8 @@ import json
 
 from plyvel import destroy_db
 
+from onitu.utils import TMPDIR
+
 
 class Rule(object):
     def __init__(self):
@@ -29,19 +31,16 @@ class Rule(object):
 
 
 class Setup(object):
-    def __init__(self, session=False):
+    def __init__(self):
         self.entries = set()
         self.rules = []
-        self.filename = None
 
-        if session:
-            # Each time the launcher will be started, it will use the
-            # same session
-            self.name = ''.join(
-                random.sample(string.ascii_letters + string.digits, 20)
-            )
-        else:
-            self.name = None
+        self._json = None
+
+        self.name = ''.join(
+            random.sample(string.ascii_letters + string.digits, 20)
+        )
+        self.filename = os.path.join(TMPDIR, "{}.json".format(self.name))
 
     def add(self, driver):
         self.entries.add(driver)
@@ -56,11 +55,11 @@ class Setup(object):
             for entry in self.entries:
                 entry.close()
 
-        if self.filename:
+        try:
             os.unlink(self.filename)
-
-        if self.name:
             destroy_db('dbs/{}'.format(self.name))
+        except (OSError, IOError):
+            pass
 
     @property
     def dump(self):
@@ -73,12 +72,18 @@ class Setup(object):
 
     @property
     def json(self):
-        return json.dumps(self.dump, indent=2)
+        if not self._json:
+            self._json = json.dumps(self.dump, indent=2)
 
-    def save(self, filename):
-        self.filename = filename
-        config = json.dumps(self.dump, indent=2)
-        print('config = """%s"""' % config)
+        return self._json
 
-        with open(filename, 'w+') as f:
-            json.dump(self.dump, f, indent=2)
+    @json.setter
+    def json(self, content):
+        self._json = content
+
+    def save(self):
+        print('Setup:')
+        print(self.json)
+
+        with open(self.filename, 'w+') as f:
+            f.write(self.json)

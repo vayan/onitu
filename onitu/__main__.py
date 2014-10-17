@@ -10,23 +10,30 @@ This module starts Onitu. It does the following:
 
 import sys
 import argparse
-import string
-import random
 
 import json
 import circus
 
-from circus.exc import ConflictError
-from zmq.eventloop import ioloop
 from logbook import Logger, INFO, DEBUG, NullHandler, NestedSetup
 from logbook.queues import ZeroMQHandler, ZeroMQSubscriber
 from logbook.more import ColorizedStderrHandler
 from tornado import gen
-from plyvel import destroy_db
 
 
 from .escalator.client import Escalator
-from .utils import at_exit, get_open_port
+from .utils import get_logs_uri, IS_WINDOWS, get_stats_endpoint
+from .utils import get_circusctl_endpoint, get_pubsub_endpoint
+
+# Time given to each process (Drivers, Referee, API...) to
+# exit before being killed. This avoid any hang during
+# shutdown
+GRACEFUL_TIMEOUT = 1.
+
+setup_file = None
+session = None
+setup = None
+logger = None
+arbiter = None
 
 
 @gen.coroutine
@@ -34,33 +41,26 @@ def start_setup(*args, **kwargs):
     """Parse the setup JSON file, clean the database,
     and start the :class:`.Referee` and the drivers.
     """
-    escalator = Escalator(escalator_uri, session, create_db=True)
-
-    ports = escalator.range(prefix='port:', include_value=False)
-
-    if ports:
-        with escalator.write_batch() as batch:
-            for key in ports:
-                batch.delete(key)
+    escalator = Escalator(session, create_db=True)
 
     escalator.put('referee:rules', setup.get('rules', []))
 
-    if 'entries' not in setup:
+    entries = setup.get('entries')
+    if not entries:
         logger.warn("No entries specified in '{}'", setup_file)
-        loop.stop()
-
-    entries = setup['entries']
+        yield arbiter.stop()
 
     escalator.put('entries', list(entries.keys()))
 
     referee = arbiter.add_watcher(
         "Referee",
         sys.executable,
-        args=('-m', 'onitu.referee', log_uri, escalator_uri, session),
+        args=('-m', 'onitu.referee', session),
         copy_env=True,
+        graceful_timeout=GRACEFUL_TIMEOUT
     )
 
-    loop.add_callback(start_watcher, referee)
+    yield referee.start()
 
     for name, conf in entries.items():
         logger.debug("Loading entry {}", name)
@@ -80,38 +80,26 @@ def start_setup(*args, **kwargs):
             name,
             sys.executable,
             args=('-m', 'onitu.drivers',
-                  conf['driver'], escalator_uri, session, name, log_uri),
+                  conf['driver'], session, name),
             copy_env=True,
+            graceful_timeout=GRACEFUL_TIMEOUT
         )
 
-        loop.add_callback(start_watcher, watcher)
+        yield watcher.start()
 
     logger.debug("Entries loaded")
 
     api = arbiter.add_watcher(
         "Rest API",
         sys.executable,
-        args=['-m', 'onitu.api', log_uri, escalator_uri, session, endpoint],
+        args=['-m', 'onitu.api', session],
         copy_env=True,
+        graceful_timeout=GRACEFUL_TIMEOUT
     )
-    loop.add_callback(start_watcher, api)
+    yield api.start()
 
 
-@gen.coroutine
-def start_watcher(watcher):
-    """Start a Circus Watcher.
-    If a command is already running, we try again.
-    """
-    try:
-        watcher.start()
-    except ConflictError as e:
-        loop.add_callback(start_watcher, watcher)
-    except Exception as e:
-        logger.warning("Can't start entry {} : {}", watcher.name, e)
-        return
-
-
-def get_logs_dispatcher(uri=None, debug=False):
+def get_logs_dispatcher(uri, debug=False):
     """Configure the dispatcher that will print the logs received
     on the ZeroMQ channel.
     """
@@ -122,15 +110,11 @@ def get_logs_dispatcher(uri=None, debug=False):
 
     handlers.append(ColorizedStderrHandler(level=INFO))
 
-    if not uri:
-        uri = get_open_port()
-
     subscriber = ZeroMQSubscriber(uri, multi=True)
-    return uri, subscriber.dispatch_in_background(setup=NestedSetup(handlers))
+    return subscriber.dispatch_in_background(setup=NestedSetup(handlers))
 
 
 def get_setup():
-    logger.info("Loading setup...")
     try:
         with open(setup_file) as f:
             return json.load(f)
@@ -142,29 +126,19 @@ def get_setup():
         )
 
 
-if __name__ == '__main__':
+def main():
+    global setup_file, session, setup, logger, arbiter
+
+    logger = Logger("Onitu")
+
     parser = argparse.ArgumentParser("onitu")
     parser.add_argument(
         '--setup', default='setup.json',
         help="A JSON file with Onitu's configuration (defaults to setup.json)"
     )
     parser.add_argument(
-        '--log-uri', help="A ZMQ socket where all the logs will be sent"
-    )
-    parser.add_argument(
-        '--endpoint', help="The ZMQ socket used to manage Onitu"
-        "via circusctl. (defaults to tcp://127.0.0.1:5555)",
-        default='tcp://127.0.0.1:5555'
-    )
-    parser.add_argument(
-        '--pubsub_endpoint', help="The ZMQ PUB/SUB socket receiving"
-        "publications of events. (defaults to tcp://127.0.0.1:5556)",
-        default='tcp://127.0.0.1:5556'
-    )
-    parser.add_argument(
-        '--stats_endpoint', help="The ZMQ PUB/SUB socket receiving"
-        "publications of stats. (defaults to tcp://127.0.0.1:5557)",
-        default='tcp://127.0.0.1:5557'
+        '--no-dispatcher', action='store_true',
+        help="Use this flag to disable the log dispatcher"
     )
     parser.add_argument(
         '--debug', action='store_true', help="Enable debugging logging"
@@ -172,74 +146,49 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     setup_file = args.setup
-    log_uri = args.log_uri
-    endpoint = args.endpoint
-    pubsub_endpoint = args.pubsub_endpoint
-    stats_endpoint = args.stats_endpoint
-    dispatcher = None
 
-    if not args.log_uri:
-        log_uri, dispatcher = get_logs_dispatcher(
-            uri=log_uri, debug=args.debug
-        )
+    setup = get_setup()
+    if not setup:
+        return 1
 
-    with ZeroMQHandler(log_uri, multi=True):
-        logger = Logger("Onitu")
+    session = setup.get('name')
 
-        setup = get_setup()
-        session = setup.get('name')
-        tmp_session = session is None
+    logs_uri = get_logs_uri(session)
+    if not args.no_dispatcher:
+        dispatcher = get_logs_dispatcher(debug=args.debug, uri=logs_uri)
+    else:
+        dispatcher = None
 
-        if tmp_session:
-            # If the current setup does not have a name, we create a random one
-            session = ''.join(
-                random.sample(string.ascii_letters + string.digits, 10)
-            )
-        elif ':' in session:
-            logger.error("Illegal character ':' in name '{}'", session)
-
-        escalator_uri = get_open_port()
-
-        ioloop.install()
-        loop = ioloop.IOLoop.instance()
-
-        arbiter = circus.get_arbiter(
-            [
-                {
-                    'name': 'Escalator',
-                    'cmd': sys.executable,
-                    'args': ('-m', 'onitu.escalator.server',
-                             '--bind', escalator_uri,
-                             '--log-uri', log_uri),
-                    'copy_env': True,
-                },
-            ],
-            proc_name="Onitu",
-            controller=endpoint,
-            pubsub_endpoint=pubsub_endpoint,
-            stats_endpoint=stats_endpoint,
-            loop=loop
-        )
-
-        at_exit(loop.stop)
-
+    with ZeroMQHandler(logs_uri, multi=True):
         try:
-            future = arbiter.start()
-            loop.add_future(future, start_setup)
-            arbiter.start_io_loop()
+            arbiter = circus.get_arbiter(
+                (
+                    {
+                        'name': 'Escalator',
+                        'cmd': sys.executable,
+                        'args': ('-m', 'onitu.escalator.server', session),
+                        'copy_env': True,
+                        'graceful_timeout': GRACEFUL_TIMEOUT
+                    },
+                ),
+                proc_name="Onitu",
+                controller=get_circusctl_endpoint(session),
+                pubsub_endpoint=get_pubsub_endpoint(session),
+                stats_endpoint=get_stats_endpoint(session),
+                statsd=True
+            )
+
+            arbiter.start(cb=start_setup)
         except (KeyboardInterrupt, SystemExit):
             pass
         finally:
-            logger.info("Exiting...")
-
-            # We wait for all the processes
-            # to be killed.
-            loop.run_sync(arbiter.stop)
-
-            if dispatcher:
+            if dispatcher and dispatcher.running:
                 dispatcher.stop()
 
-            if tmp_session:
-                # Maybe this should be handled in Escalator, but
-                # it is not easy since it can manage several dbs
-                destroy_db('dbs/{}'.format(session))
+            if IS_WINDOWS:
+                from .utils import delete_sock_files
+                delete_sock_files()
+
+
+if __name__ == '__main__':
+    sys.exit(main())

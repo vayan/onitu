@@ -1,4 +1,6 @@
 import os
+import string
+import random
 import hashlib
 from path import path
 
@@ -7,9 +9,9 @@ from dropbox.client import DropboxClient
 from dropbox.rest import ErrorResponse
 
 from tests.utils.testdriver import TestDriver
-from onitu.drivers.dropbox.dropbox_driver import (ONITU_APP_KEY,
-                                                  ONITU_APP_SECRET,
-                                                  ONITU_ACCESS_TYPE)
+from onitu_dropbox.dropbox_driver import (ONITU_APP_KEY,
+                                          ONITU_APP_SECRET,
+                                          ONITU_ACCESS_TYPE)
 
 
 class Driver(TestDriver):
@@ -17,7 +19,9 @@ class Driver(TestDriver):
 
     def __init__(self, *args, **options):
         if 'root' not in options:
-            options['root'] = '/onitu/'
+            rand = ''.join(random.sample(
+                string.ascii_letters + string.digits, 10))
+            options['root'] = "/{}/".format(rand)
         if 'key' not in options:
             options['access_key'] = os.environ['ONITU_DROPBOX_KEY']
         if 'secret' not in options:

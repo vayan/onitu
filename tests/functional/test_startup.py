@@ -1,36 +1,62 @@
+import json
+
 from tests.utils.launcher import Launcher
 from tests.utils.setup import Setup, Rule
 from tests.utils.driver import LocalStorageDriver, TargetDriver
-from tests.utils.loop import CounterLoop
-
-launcher, setup = None, None
-rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
-json_file = 'test_startup.json'
 
 
-def setup_module(module):
-    global launcher, setup
+def test_startup():
+    rep1, rep2 = LocalStorageDriver('rep1'), TargetDriver('rep2')
+
     setup = Setup()
     setup.add(rep1)
     setup.add(rep2)
     setup.add_rule(Rule().match_path('/').sync(rep1.name, rep2.name))
-    setup.save(json_file)
-    launcher = Launcher(json_file)
+
+    try:
+        launcher = Launcher(setup)
+        launcher()
+
+        assert not launcher.process.poll()
+    finally:
+        launcher.close()
 
 
-def teardown_module(module):
-    launcher.kill()
-    setup.clean()
+def test_no_setup():
+    setup = Setup()
+    launcher = Launcher(setup)
+
+    error = (
+        "Can't process setup file '{setup}' : "
+        "[Errno 2] No such file or directory: '{setup}'"
+        .format(setup=setup.filename)
+    )
+
+    try:
+        launcher(wait=False, stderr=True, save_setup=False)
+        launcher.wait()
+
+        assert launcher.process.returncode == 1
+        assert error in launcher.process.stderr.read().decode()
+    finally:
+        launcher.close()
 
 
-def test_all_active():
-    loop = CounterLoop(3)
+def test_invalid_setup():
+    setup = Setup()
+    setup.json = '{"foo": bar}'
+    launcher = Launcher(setup)
 
-    launcher.on_referee_started(loop.check)
-    launcher.on_driver_started(loop.check, driver='rep1')
-    launcher.on_driver_started(loop.check, driver='rep2')
-    launcher()
+    try:
+        json.loads(setup.json)
+    except ValueError as e:
+        error = "Error parsing '{}' : {}".format(setup.filename, e)
 
-    loop.run(timeout=5)
+    try:
+        launcher(wait=False, stderr=True)
+        launcher.wait()
 
-    launcher.quit()
+        assert launcher.process.returncode == 1
+        assert error in launcher.process.stderr.read().decode()
+    finally:
+        launcher.close()
