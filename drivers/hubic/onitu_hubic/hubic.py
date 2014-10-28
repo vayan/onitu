@@ -6,7 +6,7 @@ import threading
 import time
 import datetime
 
-from onitu.plug import Plug, ServiceError
+from onitu.plug import Plug, ServiceError, DriverError
 from onitu.escalator.client import EscalatorClosed
 
 plug = Plug()
@@ -76,7 +76,9 @@ class Hubic:
             headers={'Authorization': 'Basic ' + application_token}
             )
 
-        self.hubic_token = response.json()["access_token"]
+        self.hubic_token = response.json().get("access_token", None)
+        if self.hubic_token is None:
+            raise DriverError("Couldn't authenticate to Hubic")
         return self._hubic_call(method, uri, data, headers, limit)
 
     def _hubic_call(self, method, uri, data=None, headers={}, limit=3):
@@ -379,8 +381,8 @@ def start():
         root = root[:-1]
 
     onitu_client_id = "api_hubic_yExkTKwof2zteYA8kQG4gYFmnmHVJoNl"
-    onitu_client_secret = "CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV"
-    "49e7SpBsHDAKdtm5WeR5KEaDvc"
+    onitu_client_secret = ("CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV"
+    "49e7SpBsHDAKdtm5WeR5KEaDvc")
 
     global hubic
     hubic = Hubic(onitu_client_id, onitu_client_secret,

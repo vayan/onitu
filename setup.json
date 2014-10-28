@@ -13,6 +13,40 @@
       "options": {
         "root": "example/driver_b"
       }
+    },
+    "dropbox": {
+      "driver": "dropbox",
+      "options": {
+        "root": "/onitu/",
+        "access_key": "1n8rl2za664hf6q6",
+        "access_secret": "lvw0p4e93tbfgze"
+      }
+    },
+    "hubic": {
+      "driver": "hubic",
+      "options": {
+        "root": "/onitu",
+          "refresh_token": "4PyV1xOuVmiPF4yFI7n3kgURpOo2jHOhnAnyAfqH0GKQq9NX8LzC3RxKCySzLEiv",
+          "changes_timer" : 10
+      }
+    },
+    "google_drive": {
+      "driver": "google_drive",
+      "options": {
+        "root": "/onitu",
+	"client_id": "6155769202.apps.googleusercontent.com",
+        "client_secret": "ZcxluuTcGL2WkurnYSJgJvbN",
+        "refresh_token": "1/Kq0on6B_R74a2NkroHnD4EpNhavWfC_AFDzbnA8N4qQ",
+        "changes_timer" : 10.0
+      }
+    },
+    "flickr": {
+	"driver": "flickr",
+	"options": {
+	    "root": "album-onitu",
+	    "oauth_token": "72157648955146886-9f3dbcb0a5ad79b7",
+	    "oauth_token_secret": "b691556beabdc4a6"
+	}
     }
   },
 
@@ -22,8 +56,39 @@
       "sync": ["A"]
     },
     {
+      "match": {"path": "/dropbox"},
+      "sync": ["dropbox"]
+    },
+    {
+      "match": {"path": "/gdrive"},
+      "sync": ["google_drive"]
+    },
+    {
+      "match": {"path": "/hubic"},
+      "sync": ["hubic"]
+    },
+    {
       "match": {"path": "/backedup/", "mime": ["application/pdf"]},
       "sync": ["B"]
+    },
+    {
+      "match": {"path": "/Musique/", "mime": ["audio/mpeg"]},
+      "sync": ["dropbox"]
+    },
+    {
+      "match": {"path": "/Documents/", "mime": ["application/pdf",
+						"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+					       "application/vnd.ms-word",
+					       "application/vnd.oasis.opendocument.text"]},
+      "sync": ["google_drive"]
+    },
+    {
+      "match": {"path": "/Photos/", "mime": ["image/jpeg"]},
+      "sync": ["flickr"]
+    },
+    {
+      "match": {"path": "/Videos/", "mime": ["video/x-msvideo"]},
+      "sync": ["hubic"]
     }
   ]
 

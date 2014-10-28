@@ -309,8 +309,25 @@ class CheckChanges(threading.Thread):
             # Dropbox doesn't support trailing slashes
             if prefix.endswith('/'):
                 prefix = prefix[:-1]
-            changes = dropbox_client.delta(cursor=self.cursor,
-                                           path_prefix=prefix)
+            # An Error can occur when we change user without changing the
+            # driver's name. The driver then takes the old cursor, bound
+            # to the other user and so Dropbox sends an error because it
+            # isn't this user anymore.
+            try:
+                changes = dropbox_client.delta(cursor=self.cursor,
+                                               path_prefix=prefix)
+            except dropbox.rest.ErrorResponse as er:
+                if (er.error_msg is not None
+                and 'Invalid "cursor" parameter' in er.error_msg):
+                    plug.logger.warning("Invalid cursor, resetting it...")
+                    self.cursor = ''
+                    continue  # Retry
+                else:
+                    raise DriverError("Error {} while fetching delta: {} - {}"
+                                      .format(er.status, er.reason,
+                                              er.error_msg
+                                          )
+                                  )
             plug.logger.debug("Processing {} entries"
                               .format(len(changes['entries'])))
             prefix += '/'  # put the trailing slash back
