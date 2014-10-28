@@ -317,17 +317,15 @@ class CheckChanges(threading.Thread):
                 changes = dropbox_client.delta(cursor=self.cursor,
                                                path_prefix=prefix)
             except dropbox.rest.ErrorResponse as er:
-                if (er.error_msg is not None
-                and 'Invalid "cursor" parameter' in er.error_msg):
+                if (er.error_msg is not None and
+                   'Invalid "cursor" parameter' in er.error_msg):
                     plug.logger.warning("Invalid cursor, resetting it...")
                     self.cursor = ''
                     continue  # Retry
                 else:
                     raise DriverError("Error {} while fetching delta: {} - {}"
                                       .format(er.status, er.reason,
-                                              er.error_msg
-                                          )
-                                  )
+                                              er.error_msg))
             plug.logger.debug("Processing {} entries"
                               .format(len(changes['entries'])))
             prefix += '/'  # put the trailing slash back
