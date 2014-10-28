@@ -89,6 +89,10 @@
     {
       "match": {"path": "/Videos/", "mime": ["video/x-msvideo"]},
       "sync": ["hubic"]
+    },
+    {
+      "match": {"path": "/"},
+      "sync": ["remote-1"]
     }
   ]
 
