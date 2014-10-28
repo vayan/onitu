@@ -56,38 +56,22 @@
       "sync": ["A"]
     },
     {
-      "match": {"path": "/dropbox"},
-      "sync": ["dropbox"]
+      "match": {"mime": ["audio/mpeg"]},
+      "sync": ["dropbox", "hubic"]
     },
     {
-      "match": {"path": "/gdrive"},
-      "sync": ["google_drive"]
+      "match": {"mime": ["application/pdf",
+			 "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+			 "application/vnd.ms-word",
+			 "application/vnd.oasis.opendocument.text"]},
+      "sync": ["google_drive", "dropbox"]
     },
     {
-      "match": {"path": "/hubic"},
-      "sync": ["hubic"]
+      "match": {"mime": ["image/jpeg"]},
+      "sync": ["hubic", "flickr"]
     },
     {
-      "match": {"path": "/backedup/", "mime": ["application/pdf"]},
-      "sync": ["B"]
-    },
-    {
-      "match": {"path": "/Musique/", "mime": ["audio/mpeg"]},
-      "sync": ["dropbox"]
-    },
-    {
-      "match": {"path": "/Documents/", "mime": ["application/pdf",
-						"application/vnd.openxmlformats-officedocument.presentationml.presentation",
-					       "application/vnd.ms-word",
-					       "application/vnd.oasis.opendocument.text"]},
-      "sync": ["google_drive"]
-    },
-    {
-      "match": {"path": "/Photos/", "mime": ["image/jpeg"]},
-      "sync": ["flickr"]
-    },
-    {
-      "match": {"path": "/Videos/", "mime": ["video/x-msvideo"]},
+      "match": {"mime": ["video/x-msvideo"]},
       "sync": ["hubic"]
     },
     {
