@@ -2,16 +2,10 @@
   "name": "example",
 
   "entries": {
-    "A": {
+    "server": {
       "driver": "local_storage",
       "options": {
         "root": "example/driver_a"
-      }
-    },
-    "B": {
-      "driver": "local_storage",
-      "options": {
-        "root": "example/driver_b"
       }
     },
     "dropbox": {
@@ -52,31 +46,23 @@
 
   "rules": [
     {
-      "match": {"path": "/"},
-      "sync": ["A"]
+      "match": {"path": "/Musique/", "mime": ["audio/mpeg"]},
+      "sync": ["server", "dropbox"]
     },
     {
-      "match": {"mime": ["audio/mpeg"]},
-      "sync": ["dropbox", "hubic"]
+      "match": {"path": "/Documents/", "mime": ["application/pdf",
+						"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+					       "application/vnd.ms-word",
+					       "application/vnd.oasis.opendocument.text"]},
+      "sync": ["server", "google_drive"]
     },
     {
-      "match": {"mime": ["application/pdf",
-			 "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-			 "application/vnd.ms-word",
-			 "application/vnd.oasis.opendocument.text"]},
-      "sync": ["google_drive", "dropbox"]
+      "match": {"path": "/Photos/", "mime": ["image/jpeg"]},
+      "sync": ["server", "flickr"]
     },
     {
-      "match": {"mime": ["image/jpeg"]},
-      "sync": ["hubic", "flickr"]
-    },
-    {
-      "match": {"mime": ["video/x-msvideo"]},
-      "sync": ["hubic"]
-    },
-    {
-      "match": {"path": "/"},
-      "sync": ["remote-1"]
+      "match": {"path": "/Videos/", "mime": ["video/x-msvideo"]},
+      "sync": ["server", "hubic"]
     }
   ]
 
