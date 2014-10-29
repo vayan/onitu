@@ -295,6 +295,9 @@ class CheckChanges(threading.Thread):
         plug.logger.debug("Getting cursor '{}' out of database"
                           .format(self.cursor))
 
+        # Temporary, desactivate the changes at startup
+        self.first_time = True
+
     def check_dropbox(self):
         global plug
         plug.logger.debug("Checking dropbox for changes in '{}' folder"
@@ -306,6 +309,8 @@ class CheckChanges(threading.Thread):
         has_more = True
         changes = None
         while has_more:
+            if self.first_time:
+                self.first_time = False
             # Dropbox doesn't support trailing slashes
             if prefix.endswith('/'):
                 prefix = prefix[:-1]
