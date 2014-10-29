@@ -309,8 +309,6 @@ class CheckChanges(threading.Thread):
         has_more = True
         changes = None
         while has_more:
-            if self.first_time:
-                self.first_time = False
             # Dropbox doesn't support trailing slashes
             if prefix.endswith('/'):
                 prefix = prefix[:-1]
@@ -334,6 +332,11 @@ class CheckChanges(threading.Thread):
             plug.logger.debug("Processing {} entries"
                               .format(len(changes['entries'])))
             prefix += '/'  # put the trailing slash back
+
+            if self.first_time:
+                self.first_time = False
+                break
+
             # Entries are a list of couples (filename, metadatas).
             # However, the filename is case-insensitive. So we have to use the
             # 'path' field of the metadata containing the true, correct-case
