@@ -5,7 +5,7 @@
     "server": {
       "driver": "local_storage",
       "options": {
-        "root": "example/driver_a"
+        "root": "server"
       }
     },
     "dropbox": {
@@ -24,16 +24,6 @@
           "changes_timer" : 10
       }
     },
-    "google_drive": {
-      "driver": "google_drive",
-      "options": {
-        "root": "/onitu",
-	"client_id": "6155769202.apps.googleusercontent.com",
-        "client_secret": "ZcxluuTcGL2WkurnYSJgJvbN",
-        "refresh_token": "1/Kq0on6B_R74a2NkroHnD4EpNhavWfC_AFDzbnA8N4qQ",
-        "changes_timer" : 10.0
-      }
-    },
     "flickr": {
 	"driver": "flickr",
 	"options": {
@@ -47,23 +37,18 @@
   "rules": [
     {
       "match": {"path": "/Musique/", "mime": ["audio/mpeg"]},
-      "sync": ["server", "dropbox"]
+      "sync": ["server", "dropbox", "hubic", "remote-1"]
     },
     {
       "match": {"path": "/Documents/", "mime": ["application/pdf",
 						"application/vnd.openxmlformats-officedocument.presentationml.presentation",
 					       "application/vnd.ms-word",
 					       "application/vnd.oasis.opendocument.text"]},
-      "sync": ["server", "google_drive"]
+      "sync": ["server", "dropbox", "remote-1"]
     },
     {
       "match": {"path": "/Photos/", "mime": ["image/jpeg"]},
-      "sync": ["server", "flickr"]
-    },
-    {
-      "match": {"path": "/Videos/", "mime": ["video/x-msvideo"]},
-      "sync": ["server", "hubic"]
+      "sync": ["server", "flickr", "remote-1"]
     }
   ]
-
 }
