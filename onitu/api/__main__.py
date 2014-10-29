@@ -7,13 +7,13 @@ elif version_info.major == 3:
     from urllib.parse import unquote as unquote
 from logbook import Logger
 from logbook.queues import ZeroMQHandler
-from bottle import Bottle, run, response, abort, redirect
+from bottle import Bottle, run, response, abort, redirect, static_file
 from circus.client import CircusClient
 
 from onitu.escalator.client import Escalator
 from onitu.utils import get_fid, get_logs_uri, get_circusctl_endpoint
 
-host = 'localhost'
+host = '0.0.0.0'
 port = 3862
 
 app = Bottle()
@@ -288,6 +288,11 @@ def restart_entry(name):
     except Exception as e:
         resp = error(error_message=str(e))
     return resp
+
+
+@app.route('/facet/<filename:path>')
+def send_static(filename):
+    return static_file(filename, root='facet/')
 
 
 if __name__ == '__main__':
