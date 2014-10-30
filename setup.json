@@ -46,7 +46,7 @@
 					       "application/vnd.oasis.opendocument.text",
 					       "application/vnd.oasis.opendocument.spreadsheet"
 						]},
-      "sync": ["server", "dropbox", "remote-1"]
+      "sync": ["server", "dropbox", "hubic", "remote-1"]
     },
     {
       "match": {"path": "/Photos/", "mime": ["image/jpeg"]},
