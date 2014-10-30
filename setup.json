@@ -20,7 +20,7 @@
       "driver": "hubic",
       "options": {
         "root": "/onitu",
-          "refresh_token": "4PyV1xOuVmiPF4yFI7n3kgURpOo2jHOhnAnyAfqH0GKQq9NX8LzC3RxKCySzLEiv",
+          "refresh_token": "ztEaw0hidSMDYidpoPn4UUueJDFewh2UJFeoM7i8DeHTkXLusMj868lqESUsRVDI",
           "changes_timer" : 10
       }
     },
@@ -43,7 +43,9 @@
       "match": {"path": "/Documents/", "mime": ["application/pdf",
 						"application/vnd.openxmlformats-officedocument.presentationml.presentation",
 					       "application/vnd.ms-word",
-					       "application/vnd.oasis.opendocument.text"]},
+					       "application/vnd.oasis.opendocument.text",
+					       "application/vnd.oasis.opendocument.spreadsheet"
+						]},
       "sync": ["server", "dropbox", "remote-1"]
     },
     {
