@@ -141,6 +141,12 @@ class Referee(object):
         new_metadata = self.escalator.get('file:{}'.format(new_fid))
         new_filename = new_metadata['filename']
 
+        should_own = set(owners)
+        for rule in self.rules:
+            if self.rule_match(rule, new_filename):
+                should_own.update(rule.get("sync", []))
+                should_own.difference_update(rule.get("ban", []))
+
         self.logger.info(
             "Moving of '{}' to '{}' from {}", filename, new_filename, driver
         )
@@ -157,6 +163,7 @@ class Referee(object):
             return
 
         self.notify(owners, MOV, old_fid, new_fid)
+        self.notify(should_own - owners, UP, new_fid, driver)
 
     def _handle_update(self, fid, driver):
         """Choose who are the entries that are concerned by the event
