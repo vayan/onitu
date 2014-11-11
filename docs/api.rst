@@ -87,18 +87,18 @@ Files
       "uptodate": ["A", "C"]
     }
 
-Entries
+Services
 -------
 
-.. http:get:: /entries
+.. http:get:: /services
 
-  List all the entries.
+  List all the services.
 
   **Example request**:
 
   .. sourcecode:: http
 
-    GET /api/v1.0/entries HTTP/1.1
+    GET /api/v1.0/services HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -111,9 +111,10 @@ Entries
     Content-Type: application/json
 
     {
-      "entries": [
+      "services": [
         {
           "name": "A",
+          "sid": "eae32bc5-57c4-5e0b-bb8f-c91b5152af0e",
           "driver": "local_storage",
           "options": {
             "root": "example/A"
@@ -121,6 +122,7 @@ Entries
         },
         {
           "name": "B",
+          "sid": "eae398c5-51c4-5e4b-bb8f-d02c6263b01f",
           "driver": "local_storage",
           "options": {
             "root": "example/B"
@@ -130,15 +132,15 @@ Entries
     }
 
 
-.. http:get:: /entries/(name)
+.. http:get:: /services/(sid)
 
-  Return the description of a given entry.
+  Return the description of a given service, by service id.
 
   **Example request**:
 
   .. sourcecode:: http
 
-    GET /api/v1.0/entries/A HTTP/1.1
+    GET /api/v1.0/services/eae32bc5-57c4-5e0b-bb8f-c91b5152af0e HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -158,15 +160,15 @@ Entries
       }
     }
 
-.. http:get:: /entries/(name)/stats
+.. http:get:: /services/(sid)/stats
 
-  Return the stats of a given entry (age, cpu, memory, status, name).
+  Return the stats of a given service (age, cpu, memory, status, name).
 
   **Example request**:
 
   .. sourcecode:: http
 
-    GET /api/v1.0/entries/A/stats HTTP/1.1
+    GET /api/v1.0/services/eae32bc5-57c4-5e0b-bb8f-c91b5152af0e/stats HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -203,7 +205,7 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A not found",
+      "reason": "service not found: no such id",
       "status": "error",
     }
 
@@ -214,19 +216,19 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A is not running",
+      "reason": "service not running",
       "status": "error",
     }
 
-.. http:get:: /entries/(name)/status
+.. http:get:: /services/(sid)/status
 
-  Return the status of a given entry.
+  Return the status of a given service.
 
   **Example request**:
 
   .. sourcecode:: http
 
-    GET /api/v1.0/entries/A/status HTTP/1.1
+    GET /api/v1.0/services/eae32bc5-57c4-5e0b-bb8f-c91b5152af0e/status HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -265,19 +267,19 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A not found",
+      "reason": "service not found",
       "status": "error",
     }
 
-.. http:put:: /entries/(name)/stop
+.. http:put:: /services/(sid)/stop
 
-  Stop a given entry.
+  Stop a given service.
 
   **Example request**:
 
   .. sourcecode:: http
 
-    PUT /api/v1.0/entries/A/stop HTTP/1.1
+    PUT /api/v1.0/services/eae32bc5-57c4-5e0b-bb8f-c91b5152af0e/stop HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -304,7 +306,7 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A not found",
+      "reason": "service not found",
       "status": "error",
     }
 
@@ -315,19 +317,19 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A is already stopped",
+      "reason": "service already stopped",
       "status": "error",
     }
 
-.. http:put:: /entries/(name)/start
+.. http:put:: /services/(sid)/start
 
-  Start a given entry.
+  Start a given service.
 
   **Example request**:
 
   .. sourcecode:: http
 
-    PUT /api/v1.0/entries/A/start HTTP/1.1
+    PUT /api/v1.0/services/eae32bc5-57c4-5e0b-bb8f-c91b5152af0e/start HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -354,7 +356,7 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A not found",
+      "reason": "service not found",
       "status": "error",
     }
 
@@ -365,19 +367,19 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A is already running",
+      "reason": "service already running",
       "status": "error",
     }
 
-.. http:put:: /entries/(name)/restart
+.. http:put:: /services/(name)/restart
 
-  Stop and start a given entry.
+  Stop and start a given service.
 
   **Example request**:
 
   .. sourcecode:: http
 
-    PUT /api/v1.0/entries/A/restart HTTP/1.1
+    PUT /api/v1.0/services/eae32bc5-57c4-5e0b-bb8f-c91b5152af0e/restart HTTP/1.1
     Host: 127.0.0.1
     Accept: application/json
 
@@ -404,7 +406,7 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A not found",
+      "reason": "service not found",
       "status": "error",
     }
 
@@ -415,7 +417,7 @@ Entries
     Content-Type: application/json
 
     {
-      "reason": "entry A is not running",
+      "reason": "service not running",
       "status": "error",
     }
 

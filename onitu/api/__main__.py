@@ -44,7 +44,7 @@ def entry(name):
 
 
 def entry_exists(name):
-    names = [entry for entry in escalator.get('entries')]
+    names = [entry for entry in escalator.get('services')]
     return name in names
 
 
@@ -108,12 +108,6 @@ def api_doc():
     redirect("https://onitu.readthedocs.org/en/latest/api.html")
 
 
-@app.route('/api/v1.0/files/id/<name>', method='GET')
-def get_file_id(name):
-    name = unquote(name)
-    return {name: get_fid(name)}
-
-
 @app.route('/api/v1.0/files', method='GET')
 def get_files():
     files = [metadata for key, metadata in escalator.range('file:')
@@ -134,34 +128,34 @@ def get_file(fid):
     return metadata
 
 
-@app.route('/api/v1.0/entries', method='GET')
+@app.route('/api/v1.0/services', method='GET')
 def get_entries():
-    entries = [entry(name) for name in escalator.get('entries')]
-    return {'entries': entries}
+    services = [entry(name) for name in escalator.get('services')]
+    return {'services': services}
 
 
-@app.route('/api/v1.0/entries/<name>', method='GET')
-def get_entry(name):
-    name = unquote(name)
-    e = entry(name)
+@app.route('/api/v1.0/services/<sid>', method='GET')
+def get_entry(sid):
+    sid = unquote(sid)
+    e = entry(sid)
     if not e:
-        return entry_not_found(name)
+        return entry_not_found(sid)
     # Do not check if entry is running as we must be able to get info anyway
     return e
 
 
-@app.route('/api/v1.0/entries/<name>/stats', method='GET')
-def get_entry_stats(name):
-    name = unquote(name)
+@app.route('/api/v1.0/services/<sid>/stats', method='GET')
+def get_entry_stats(sid):
+    sid = unquote(sid)
     try:
-        if not entry(name):
-            return entry_not_found(name)
-        if not entry_is_running(name):
-            return entry_not_running(name)
+        if not entry(sid):
+            return entry_not_found(sid)
+        if not entry_is_running(sid):
+            return entry_not_running(sid)
         query = {
             "command": "stats",
             "properties": {
-                "name": name
+                "sid": sid
             }
         }
         stats = circus_client.call(query)
@@ -177,7 +171,7 @@ def get_entry_stats(name):
                 "mem_info2": stats['info'][pid]['mem_info2'],
                 "started": stats['info'][pid]['started'],
             },
-            "name": stats['name'],
+            "sid": stats['sid'],
             "status": stats['status'],
             "time": stats['time'],
         }
@@ -186,21 +180,21 @@ def get_entry_stats(name):
     return resp
 
 
-@app.route('/api/v1.0/entries/<name>/status', method='GET')
-def get_entry_status(name):
-    name = unquote(name)
+@app.route('/api/v1.0/services/<sid>/status', method='GET')
+def get_entry_status(sid):
+    sid = unquote(sid)
     try:
-        if not entry(name):
-            return entry_not_found(name)
+        if not entry(sid):
+            return entry_not_found(sid)
         query = {
             "command": "status",
             "properties": {
-                "name": name
+                "sid": sid
             }
         }
         status = circus_client.call(query)
         resp = {
-            "name": name,
+            "sid": sid,
             "status": status['status'],
             "time": status['time'],
         }
@@ -209,27 +203,27 @@ def get_entry_status(name):
     return resp
 
 
-@app.route('/api/v1.0/entries/<name>/start', method='PUT')
-def start_entry(name):
-    name = unquote(name)
+@app.route('/api/v1.0/services/<sid>/start', method='PUT')
+def start_entry(sid):
+    sid = unquote(sid)
     try:
-        if not entry(name):
-            return entry_not_found(name)
-        if entry_is_running(name):
+        if not entry(sid):
+            return entry_not_found(sid)
+        if entry_is_running(sid):
             return error(
                 error_code=409,
-                error_message="entry {} is already running".format(name)
+                error_message="entry {} is already running".format(sid)
             )
         query = {
             "command": "start",
             "properties": {
-                "name": name,
+                "sid": sid,
                 "waiting": True
             }
         }
         start = circus_client.call(query)
         resp = {
-            "name": name,
+            "sid": sid,
             "status": start['status'],
             "time": start['time'],
         }
@@ -238,24 +232,24 @@ def start_entry(name):
     return resp
 
 
-@app.route('/api/v1.0/entries/<name>/stop', method='PUT')
-def stop_entry(name):
-    name = unquote(name)
+@app.route('/api/v1.0/services/<sid>/stop', method='PUT')
+def stop_entry(sid):
+    sid = unquote(sid)
     try:
-        if not entry(name):
-            return entry_not_found(name)
-        if not entry_is_running(name):
-            return entry_not_running(name, already=True)
+        if not entry(sid):
+            return entry_not_found(sid)
+        if not entry_is_running(sid):
+            return entry_not_running(sid, already=True)
         query = {
             "command": "stop",
             "properties": {
-                "name": name,
+                "sid": sid,
                 "waiting": True
             }
         }
         stop = circus_client.call(query)
         resp = {
-            "name": name,
+            "sid": sid,
             "status": stop['status'],
             "time": stop['time'],
         }
@@ -264,24 +258,24 @@ def stop_entry(name):
     return resp
 
 
-@app.route('/api/v1.0/entries/<name>/restart', method='PUT')
-def restart_entry(name):
-    name = unquote(name)
+@app.route('/api/v1.0/services/<sid>/restart', method='PUT')
+def restart_entry(sid):
+    sid = unquote(sid)
     try:
-        if not entry_exists(name):
-            return entry_not_found(name)
-        if not entry_is_running(name):
-            return entry_not_running(name)
+        if not entry_exists(sid):
+            return entry_not_found(sid)
+        if not entry_is_running(sid):
+            return entry_not_running(sid)
         query = {
             "command": "restart",
             "properties": {
-                "name": name,
+                "sid": sid,
                 "waiting": True
             }
         }
         restart = circus_client.call(query)
         resp = {
-            "name": name,
+            "sid": sid,
             "status": restart['status'],
             "time": restart['time'],
         }
