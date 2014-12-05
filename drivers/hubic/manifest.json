@@ -15,7 +15,8 @@
     "changes_timer": {
       "name": "Changes Timer",
       "description": "Time between each change check. In seconds.",
-      "type": "integer"
+      "type": "integer",
+      "default": 60
     }
   }
 }

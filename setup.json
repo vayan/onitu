@@ -3,9 +3,10 @@
 
   "entries": {
     "A": {
-      "driver": "local_storage",
+      "driver": "hubic",
       "options": {
-        "root": "example/driver_a"
+	"root": "/",
+	"refresh_token": "W7CujEgXNjT21cc1ivqkf6Bt16JWxJ8EA9sb9IkXLCpti8FrpHnWs7MKZK1EzdGi"
       }
     },
     "B": {

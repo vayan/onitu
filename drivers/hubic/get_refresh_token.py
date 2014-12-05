@@ -11,15 +11,15 @@ except NameError:
 
 if __name__ == '__main__':
 
-    client_id = "api_hubic_yExkTKwof2zteYA8kQG4gYFmnmHVJoNl"
-    client_secret = "CWN2NMOVwM4wjsg3RFRMmE6OpUNJhsADLaiduV4"
-    "9e7SpBsHDAKdtm5WeR5KEaDvc"
+    client_id = "api_hubic_6zKwMZlx43Q41TML6UctAYEcdwn9hwsX"
+    client_secret = "Pa4qfzZzlOTfCrLYbUYEpCBTZdxlrKPR1GK11cTLCros5YzY3HYJob7SjbXBu0j3"
     hubic_token = "falsetoken"
-    redirect_uri = "http://localhost/"
+    redirect_uri = "http://localhost:3862/"
 
     url = "https://api.hubic.com/oauth/auth/?client_id=" + client_id
     url += "&redirect_uri=" + urllib.quote_plus(redirect_uri)
-    url += "&scope=credentials.r&response_type=code"
+    url += "&scope=usage.r,account.r,getAllLinks.r,credentials.r,activate.w,links.drw"
+    url += "&response_type=code"
 
     print
     print "Your web browser will be launched in order to let Onitu gain "
@@ -33,25 +33,33 @@ if __name__ == '__main__':
     print
 
     raw_input("If you are ready press enter.")
-    webbrowser.open(url)
+    # webbrowser.open(url)
     print
     print "The code parameter in the redirected url is after "
-    "'http://localhost/?code=' and before '&scope=...'"
+    print "'http://localhost/?code=' and before '&scope=...'"
     print
     code = raw_input("Accept Onitu and enter your code here : ")
 
+    print code
     application_token = base64.b64encode(client_id + ":" + client_secret)
+
+    print application_token
     url = "https://api.hubic.com/oauth/token/"
     response = requests.post(
         url,
         data={
-            "code": code, "grant_type": "authorization_code",
-            "redirect_uri": redirect_uri
+            "code": code, 
+            "grant_type": "authorization_code",
+            "redirect_uri": redirect_uri,
+            "client_id": client_id,
+            "client_secret": client_secret
             },
         headers={
             'Authorization': 'Basic ' + application_token
             }
         )
+
+    print response
 
     if response.status_code == 400:
         raise Exception('An invalid request was submitted')
