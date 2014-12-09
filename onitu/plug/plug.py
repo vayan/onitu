@@ -76,6 +76,9 @@ class Plug(object):
         self.router = Router(self)
         self.dealer = Dealer(self)
 
+        # Temporary fix
+        self.router.start()
+
     def listen(self, wait=True):
         """Start listening to requests from other drivers or the
         :class:`.Referee`.
@@ -89,7 +92,6 @@ class Plug(object):
         .. autoclass:: onitu.plug.router.Router
         .. autoclass:: onitu.plug.dealer.Dealer
         """
-        self.router.start()
         self.dealer.resume_transfers()
         self.dealer.start()
 
