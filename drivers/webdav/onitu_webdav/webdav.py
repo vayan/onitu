@@ -24,6 +24,12 @@ def create_dirs(webdav, path):
 
 
 @plug.handler()
+def delete_file(metadata):
+    plug.logger.debug("delete file: {}", metadata.path)
+    webdav.delete(metadata.path)
+
+
+@plug.handler()
 def get_file(metadata):
     try:
         plug.logger.debug("get file, metadata {}", metadata.path)
@@ -58,7 +64,7 @@ def upload_file(metadata, content):
         )
         with open(u(local_file), 'w') as f:
             f.write(content)
-        webdav.upload(content, metadata.path)
+        webdav.upload(local_file, metadata.path)
     except easywebdav.client.OperationFailed as e:
         raise ServiceError(
             "Error writting file '{}': {}".format(metadata.path, e)
